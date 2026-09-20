@@ -95,8 +95,8 @@ class WebPageTests(unittest.TestCase):
             }
             B = {state: {} for state in ("B", "M", "E", "S")}
             app = create_app(HMMSegmenter(pi, A, B), result_dir=tmp)
-            response = app.test_client().get("/static/app.js")
-        script = response.get_data(as_text=True)
+            with app.test_client().get("/static/app.js") as response:
+                script = response.get_data(as_text=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("formData.append", script)
         self.assertNotIn("preview.innerHTML =", script)
