@@ -101,6 +101,41 @@ class WebPageTests(unittest.TestCase):
         self.assertIn("formData.append", script)
         self.assertNotIn("preview.innerHTML =", script)
 
+    def test_javascript_locks_upload_controls_while_processing(self):
+        with self.client.get("/static/app.js") as response:
+            script = response.get_data(as_text=True)
+
+        self.assertRegex(script, r"\blet\s+processing\s*=\s*false\s*;")
+        self.assertRegex(
+            script,
+            r"function\s+chooseFile\s*\([^)]*\)\s*\{\s*"
+            r"if\s*\(processing\)\s*return\s*;",
+        )
+        self.assertRegex(
+            script,
+            r"processing\s*=\s*true\s*;[\s\S]*?"
+            r"dropZone\.classList\.add\(\"disabled\"\)\s*;[\s\S]*?"
+            r"dropZone\.setAttribute\(\"aria-disabled\",\s*\"true\"\)\s*;",
+        )
+        self.assertRegex(
+            script,
+            r"processing\s*=\s*true\s*;[\s\S]*?"
+            r"fileInput\.disabled\s*=\s*true\s*;",
+        )
+        self.assertRegex(
+            script,
+            r"processing\s*=\s*true\s*;[\s\S]*?"
+            r"analyzeButton\.disabled\s*=\s*true\s*;",
+        )
+        self.assertRegex(
+            script,
+            r"finally\s*\{[\s\S]*?"
+            r"processing\s*=\s*false\s*;[\s\S]*?"
+            r"dropZone\.classList\.remove\(\"disabled\"\)\s*;[\s\S]*?"
+            r"dropZone\.setAttribute\(\"aria-disabled\",\s*\"false\"\)\s*;"
+            r"[\s\S]*?analyzeButton\.disabled\s*=\s*!selectedFile\s*;",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

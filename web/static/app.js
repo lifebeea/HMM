@@ -14,6 +14,7 @@ const downloadButton = document.getElementById("download-button");
 let selectedFile = null;
 let downloadUrl = null;
 let outputName = null;
+let processing = false;
 
 function setStatus(message = "", type = "") {
   statusRegion.textContent = message;
@@ -31,6 +32,7 @@ function resetResult() {
 }
 
 function chooseFile(file) {
+  if (processing) return;
   resetResult();
   setStatus();
   if (!file) {
@@ -76,19 +78,30 @@ dropZone.addEventListener("drop", (event) => {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
-  if (!selectedFile) return;
+  if (!selectedFile || processing) return;
+  processing = true;
   analyzeButton.disabled = true;
   fileInput.disabled = true;
+  dropZone.classList.add("disabled");
+  dropZone.setAttribute("aria-disabled", "true");
   progress.hidden = false;
   setStatus("正在分析文件...");
 
-  const formData = new FormData();
-  formData.append("file", selectedFile, selectedFile.name);
   try {
+    const formData = new FormData();
+    formData.append("file", selectedFile, selectedFile.name);
     const response = await fetch("/api/segment", { method: "POST", body: formData });
-    const payload = await response.json();
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (_error) {
+      // Non-JSON error bodies fall back to the HTTP status message.
+    }
     if (!response.ok) {
-      throw new Error(payload.error?.message || "处理失败");
+      throw new Error(payload?.error?.message || `请求失败 (${response.status})`);
+    }
+    if (!payload) {
+      throw new Error("处理失败");
     }
     statFileName.textContent = payload.input_name;
     sentenceCount.textContent = payload.sentence_count;
@@ -101,6 +114,9 @@ form.addEventListener("submit", async (event) => {
   } catch (error) {
     setStatus(error.message || "处理失败", "error");
   } finally {
+    processing = false;
+    dropZone.classList.remove("disabled");
+    dropZone.setAttribute("aria-disabled", "false");
     progress.hidden = true;
     fileInput.disabled = false;
     analyzeButton.disabled = !selectedFile;

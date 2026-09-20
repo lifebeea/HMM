@@ -77,6 +77,10 @@ h2 { font-size: 18px; }
   cursor: pointer;
 }
 .drop-zone.dragging { border-color: var(--accent); color: var(--accent); }
+.drop-zone.disabled {
+  pointer-events: none;
+  opacity: .55;
+}
 .drop-zone:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgb(8 127 140 / 20%);
