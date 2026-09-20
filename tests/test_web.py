@@ -128,9 +128,9 @@ class WebAppTests(unittest.TestCase):
         )
         self.assertEqual(response.status_code, 200)
         payload = response.get_json()
-        download = self.client.get(payload["download_url"])
-        self.assertEqual(download.status_code, 200)
-        self.assertEqual(download.data.decode("utf-8"), "自然语\n好\n")
+        with self.client.get(payload["download_url"]) as download:
+            self.assertEqual(download.status_code, 200)
+            self.assertEqual(download.data.decode("utf-8"), "自然语\n好\n")
 
     def test_upload_error_has_consistent_shape(self):
         response = self.client.post(
@@ -156,6 +156,12 @@ class WebAppTests(unittest.TestCase):
         response = self.client.get("/api/results/not-a-uuid/download")
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.get_json()["error"]["code"], "RESULT_NOT_FOUND")
+
+    def test_non_404_api_http_error_keeps_original_response(self):
+        with self.client.get("/api/segment") as response:
+            self.assertEqual(response.status_code, 405)
+            self.assertEqual(response.mimetype, "text/html")
+            self.assertIn(b"405 Method Not Allowed", response.data)
 
 
 if __name__ == "__main__":

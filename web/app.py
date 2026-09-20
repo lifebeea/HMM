@@ -62,7 +62,7 @@ def create_app(segmenter=None, model_path=None, result_dir=None) -> Flask:
 
     @app.errorhandler(HTTPException)
     def handle_http_error(error: HTTPException):
-        if request.path.startswith("/api/"):
+        if request.path.startswith("/api/") and error.code == 404:
             return (
                 jsonify(
                     {
