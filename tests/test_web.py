@@ -1,9 +1,11 @@
+from io import BytesIO
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
 from hmm_segmenter.model import HMMSegmenter
+from web.app import create_app
 from web.service import SegmentationService, ServiceError
 
 
@@ -107,6 +109,53 @@ class SegmentationServiceTests(unittest.TestCase):
             self.service.resolve_result(expired["job_id"])
         self.assertEqual(context.exception.code, "RESULT_EXPIRED")
         self.service.resolve_result(current["job_id"])
+
+
+class WebAppTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.app = create_app(sample_model(), result_dir=self.temp.name)
+        self.client = self.app.test_client()
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_upload_returns_json_and_download_works(self):
+        response = self.client.post(
+            "/api/segment",
+            data={"file": (BytesIO("自然语。好！".encode()), "demo.txt")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        download = self.client.get(payload["download_url"])
+        self.assertEqual(download.status_code, 200)
+        self.assertEqual(download.data.decode("utf-8"), "自然语\n好\n")
+
+    def test_upload_error_has_consistent_shape(self):
+        response = self.client.post(
+            "/api/segment",
+            data={"file": (BytesIO(b"hello"), "demo.pdf")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.get_json()["error"]["code"], "INVALID_FILE_TYPE")
+
+    def test_missing_model_returns_unavailable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            app = create_app(None, result_dir=tmp)
+            response = app.test_client().post(
+                "/api/segment",
+                data={"file": (BytesIO(b"hello"), "demo.txt")},
+                content_type="multipart/form-data",
+            )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.get_json()["error"]["code"], "MODEL_UNAVAILABLE")
+
+    def test_missing_result_returns_consistent_error(self):
+        response = self.client.get("/api/results/not-a-uuid/download")
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(response.get_json()["error"]["code"], "RESULT_NOT_FOUND")
 
 
 if __name__ == "__main__":
