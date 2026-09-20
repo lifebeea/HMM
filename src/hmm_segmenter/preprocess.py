@@ -4,10 +4,11 @@ import re
 
 _HTML_TAG = re.compile(r"<[^>]+>")
 _WHITESPACE = re.compile(r"\s+")
-_SENTENCE_BOUNDARY = re.compile(r"[。！？!?；;]|(?<!\d)\.(?!\d)")
+_SENTENCE_BOUNDARY = re.compile(r"[\u3002\uff01\uff1f!?\uff1b;]|(?<!\d)\.(?!\d)")
 _KEEP = re.compile(
-    r"[^一-龥A-Za-z0-9\s"
-    r"，。！？；：、,.!?;:()（）【】《》“”‘’'\"\[\]—…·_-]"
+    r"[^\u4e00-\u9fa5A-Za-z0-9\s"
+    r"\uff0c\u3002\uff01\uff1f\uff1b\uff1a\u3001,.!?;:()\uff08\uff09\u3010\u3011\u300a\u300b"
+    r"\u201c\u201d\u2018\u2019'\"\[\]\u2014\u2026\u00b7_-]"
 )
 
 
