@@ -92,6 +92,22 @@ class SegmentationServiceTests(unittest.TestCase):
             self.service.resolve_result(job_id)
         self.assertEqual(context.exception.code, "RESULT_EXPIRED")
 
+    def test_segment_upload_cleans_expired_results_before_writing_new_result(self):
+        expired = self.service.segment_upload("old.txt", "好".encode())
+        expired_path, _ = self.service.resolve_result(expired["job_id"])
+        old = time.time() - 7200
+        expired_path.touch()
+        import os
+        os.utime(expired_path, (old, old))
+
+        current = self.service.segment_upload("new.txt", "好".encode())
+
+        self.assertFalse(expired_path.exists())
+        with self.assertRaises(ServiceError) as context:
+            self.service.resolve_result(expired["job_id"])
+        self.assertEqual(context.exception.code, "RESULT_EXPIRED")
+        self.service.resolve_result(current["job_id"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -74,6 +74,7 @@ class SegmentationService:
             word_count += len(words)
             lines.append(" ".join(words))
 
+        self.cleanup_expired()
         job_id = str(uuid.uuid4())
         safe_filename = filename.replace("\\", "/").rsplit("/", 1)[-1]
         safe_stem = Path(safe_filename).stem or "result"
