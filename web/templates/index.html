@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HMM 中文分词</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <svg hidden aria-hidden="true">
+    <symbol id="icon-upload" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>
+    </symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <path d="m7 10 5 5 5-5"/><path d="M12 15V3"/>
+    </symbol>
+  </svg>
+
+  <header class="app-header">
+    <div>
+      <p class="eyebrow">HMM / BMES / VITERBI</p>
+      <h1>中文分词分析</h1>
+    </div>
+    <span class="model-state">模型已就绪</span>
+  </header>
+
+  <main class="workspace">
+    <form id="upload-form" class="task-bar">
+      <label id="drop-zone" class="drop-zone" for="file-input">
+        <svg class="icon"><use href="#icon-upload"></use></svg>
+        <span id="selected-file">选择或拖入 .txt 文件</span>
+      </label>
+      <input id="file-input" name="file" type="file" accept=".txt,text/plain" hidden>
+      <button id="analyze-button" class="primary-button" type="submit" disabled>
+        开始分析
+      </button>
+    </form>
+
+    <div id="status-region" class="status" role="status" aria-live="polite"></div>
+    <div id="progress" class="progress" hidden><span></span></div>
+
+    <section class="stats" aria-label="分析统计">
+      <article><span>文件</span><strong id="file-name">--</strong></article>
+      <article><span>句子</span><strong id="sentence-count">--</strong></article>
+      <article><span>词数</span><strong id="word-count">--</strong></article>
+    </section>
+
+    <section class="result-panel">
+      <div class="result-heading">
+        <div>
+          <p class="eyebrow">RESULT</p>
+          <h2>分词结果预览</h2>
+        </div>
+        <a id="download-button" class="primary-button disabled" aria-disabled="true">
+          <svg class="icon"><use href="#icon-download"></use></svg>
+          下载结果
+        </a>
+      </div>
+      <pre id="preview" class="preview">上传文件后，结果显示在这里。</pre>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
