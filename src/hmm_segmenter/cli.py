@@ -64,7 +64,16 @@ def interactive_menu(model, corpus_path: Path, model_path: Path) -> None:
             except (OSError, UnicodeError) as exc:
                 print(f"处理失败：{exc}")
         elif choice == "3":
-            model = train_hmm(corpus_path, model_path)
+            try:
+                model = train_hmm(corpus_path, model_path)
+            except (
+                FileNotFoundError,
+                OSError,
+                UnicodeError,
+                ValueError,
+                ModelError,
+            ) as exc:
+                print(f"训练失败：{exc}")
         else:
             print("无效选择")
 

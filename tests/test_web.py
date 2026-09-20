@@ -3,6 +3,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from flask import abort
 from hmm_segmenter.model import HMMSegmenter
@@ -203,6 +204,21 @@ class WebAppTests(unittest.TestCase):
                     "message": BadRequest.description,
                 },
             )
+
+    def test_unexpected_api_exception_logs_and_returns_internal_error(self):
+        @self.app.get("/api/test-runtime-error")
+        def api_runtime_error():
+            raise RuntimeError("boom")
+
+        with patch.object(self.app.logger, "exception") as mock_exception:
+            response = self.client.get("/api/test-runtime-error")
+
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(
+            response.get_json()["error"]["code"],
+            "INTERNAL_ERROR",
+        )
+        mock_exception.assert_called_once()
 
 
 if __name__ == "__main__":

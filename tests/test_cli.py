@@ -1,7 +1,10 @@
+from io import StringIO
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+from hmm_segmenter import cli
 from hmm_segmenter.cli import segment_file, segment_text
 from hmm_segmenter.model import HMMSegmenter
 
@@ -34,6 +37,23 @@ class CLITests(unittest.TestCase):
             output = segment_file(sample_model(), source)
             self.assertEqual(output.name, "demo_seg.txt")
             self.assertEqual(output.read_text(encoding="utf-8"), "自然语言\n好\n")
+
+    def test_interactive_retraining_failure_keeps_menu_running(self):
+        model = sample_model()
+        output = StringIO()
+
+        with patch(
+            "hmm_segmenter.cli.train_hmm",
+            side_effect=OSError("disk full"),
+        ), patch("builtins.input", side_effect=["3", "0"]), patch(
+            "sys.stdout",
+            output,
+        ):
+            cli.interactive_menu(model, Path("corpus.txt"), Path("model.json"))
+
+        captured = output.getvalue()
+        self.assertIn("训练失败：disk full", captured)
+        self.assertEqual(captured.count("0 - 退出"), 2)
 
 
 if __name__ == "__main__":

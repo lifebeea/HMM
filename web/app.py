@@ -70,6 +70,7 @@ def create_app(segmenter=None, model_path=None, result_dir=None) -> Flask:
 
     @app.errorhandler(Exception)
     def handle_internal_error(_error):
+        app.logger.exception("Unhandled application error")
         return (
             jsonify(
                 {

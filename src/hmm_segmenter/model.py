@@ -29,6 +29,8 @@ class HMMSegmenter:
                 raise ModelError(f"{context} contains a non-finite probability")
             if value < 0:
                 raise ModelError(f"{context} contains a negative probability")
+            if value > 1:
+                raise ModelError(f"{context} contains a probability greater than one")
 
     def _validate(self) -> None:
         if not isinstance(self.pi, Mapping):
@@ -53,8 +55,13 @@ class HMMSegmenter:
                 self.A[state],
                 f"transition probabilities for state {state}",
             )
-            if sum(self.A[state].values()) <= 0:
-                raise ModelError(f"transition row has no probability mass: {state}")
+            if not math.isclose(
+                sum(self.A[state].values()),
+                1.0,
+                rel_tol=1e-9,
+                abs_tol=1e-9,
+            ):
+                raise ModelError(f"transition row does not sum to one: {state}")
         for state in STATES:
             if not isinstance(self.B[state], Mapping):
                 raise ModelError(f"emission row is malformed: {state}")
@@ -62,8 +69,20 @@ class HMMSegmenter:
                 self.B[state],
                 f"emission probabilities for state {state}",
             )
-        if sum(self.pi.values()) <= 0:
-            raise ModelError("initial probabilities have no probability mass")
+            if self.B[state] and not math.isclose(
+                sum(self.B[state].values()),
+                1.0,
+                rel_tol=1e-9,
+                abs_tol=1e-9,
+            ):
+                raise ModelError(f"emission row does not sum to one: {state}")
+        if not math.isclose(
+            sum(self.pi.values()),
+            1.0,
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        ):
+            raise ModelError("initial probabilities do not sum to one")
 
     def cut(self, sentence: str) -> list[str]:
         if not sentence or not sentence.strip():

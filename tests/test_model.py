@@ -17,10 +17,10 @@ def sample_model():
         "S": {"B": 0.5, "M": 0.0, "E": 0.0, "S": 0.5},
     }
     B = {
-        "B": {"自": 0.5, "语": 0.1, "g": 1.0},
-        "M": {"然": 1.0, "言": 0.5, "o": 1.0},
-        "E": {"言": 0.5, "好": 1.0, "d": 1.0},
-        "S": {"好": 1.0},
+        "B": {"自": 0.5, "g": 0.5},
+        "M": {"然": 0.5, "o": 0.5},
+        "E": {"语": 0.5, "d": 0.5},
+        "S": {"言": 0.5, "好": 0.5},
     }
     return HMMSegmenter(pi, A, B, {"corpus": "unit"})
 
@@ -97,6 +97,40 @@ class HMMSegmenterTests(unittest.TestCase):
                     row[next(iter(row))] = value
 
                 self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_probability_greater_than_one(self):
+        for section, value in (
+            ("pi", 1.1),
+            ("A", 1.1),
+            ("B", 1.1),
+        ):
+            with self.subTest(section=section):
+                model = sample_model()
+                if section == "pi":
+                    model.pi["B"] = value
+                else:
+                    row = getattr(model, section)["B"]
+                    row[next(iter(row))] = value
+
+                self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_non_normalized_initial_probabilities(self):
+        model = sample_model()
+        model.pi["B"] = 0.4
+
+        self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_non_normalized_transition_row(self):
+        model = sample_model()
+        model.A["B"]["M"] = 0.6
+
+        self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_non_normalized_non_empty_emission_row(self):
+        model = sample_model()
+        model.B["B"]["自"] = 0.8
+
+        self.assert_model_rejected(model)
 
 
 if __name__ == "__main__":
