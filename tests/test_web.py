@@ -1,0 +1,97 @@
+import tempfile
+import time
+import unittest
+from pathlib import Path
+
+from hmm_segmenter.model import HMMSegmenter
+from web.service import SegmentationService, ServiceError
+
+
+def sample_model():
+    pi = {"B": 0.3, "M": 0.0, "E": 0.2, "S": 0.5}
+    A = {
+        "B": {"B": 0.0, "M": 0.5, "E": 0.5, "S": 0.0},
+        "M": {"B": 0.0, "M": 0.5, "E": 0.5, "S": 0.0},
+        "E": {"B": 0.5, "M": 0.0, "E": 0.0, "S": 0.5},
+        "S": {"B": 0.5, "M": 0.0, "E": 0.0, "S": 0.5},
+    }
+    B = {
+        "B": {"自": 1.0},
+        "M": {"然": 1.0},
+        "E": {"语": 1.0},
+        "S": {"好": 1.0},
+    }
+    return HMMSegmenter(pi, A, B)
+
+
+class SegmentationServiceTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.service = SegmentationService(sample_model(), self.temp.name)
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def test_segment_upload_returns_preview_and_download_metadata(self):
+        result = self.service.segment_upload("demo.txt", "自然语。好！".encode())
+        self.assertEqual(result["output_name"], "demo_seg.txt")
+        self.assertEqual(result["sentence_count"], 2)
+        self.assertEqual(result["word_count"], 2)
+        path, name = self.service.resolve_result(result["job_id"])
+        self.assertEqual(path.read_text(encoding="utf-8"), "自然语\n好\n")
+        self.assertEqual(name, "demo_seg.txt")
+
+    def test_rejects_wrong_extension(self):
+        with self.assertRaises(ServiceError) as context:
+            self.service.segment_upload("demo.pdf", b"text")
+        self.assertEqual(context.exception.code, "INVALID_FILE_TYPE")
+
+    def test_rejects_empty_input(self):
+        with self.assertRaises(ServiceError) as context:
+            self.service.segment_upload("demo.txt", b"")
+        self.assertEqual(context.exception.code, "EMPTY_FILE")
+
+    def test_rejects_oversized_input(self):
+        service = SegmentationService(
+            sample_model(),
+            self.temp.name,
+            max_upload_bytes=3,
+        )
+        with self.assertRaises(ServiceError) as context:
+            service.segment_upload("demo.txt", b"1234")
+        self.assertEqual(context.exception.code, "FILE_TOO_LARGE")
+
+    def test_rejects_unknown_encoding(self):
+        with self.assertRaises(ServiceError) as context:
+            self.service.segment_upload("demo.txt", b"\xff")
+        self.assertEqual(context.exception.code, "DECODE_ERROR")
+
+    def test_preview_is_limited_to_twenty_sentences(self):
+        result = self.service.segment_upload(
+            "demo.txt",
+            "好。".join([""] * 22).encode(),
+        )
+        self.assertEqual(result["sentence_count"], 21)
+        self.assertEqual(len(result["preview"]), 20)
+
+    def test_output_name_removes_path_components(self):
+        result = self.service.segment_upload("../../demo.txt", "好".encode())
+        self.assertEqual(result["output_name"], "demo_seg.txt")
+
+    def test_cleanup_removes_expired_result(self):
+        result = self.service.segment_upload("demo.txt", "好".encode())
+        path, _ = self.service.resolve_result(result["job_id"])
+        job_id = result["job_id"]
+        old = time.time() - 7200
+        path.touch()
+        import os
+        os.utime(path, (old, old))
+        count = self.service.cleanup_expired(now=time.time())
+        self.assertEqual(count, 1)
+        with self.assertRaises(ServiceError) as context:
+            self.service.resolve_result(job_id)
+        self.assertEqual(context.exception.code, "RESULT_EXPIRED")
+
+
+if __name__ == "__main__":
+    unittest.main()
