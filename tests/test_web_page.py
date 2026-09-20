@@ -84,6 +84,23 @@ class WebPageTests(unittest.TestCase):
         self.assertNotIn("http://", self.html)
         self.assertNotIn("https://", self.html)
 
+    def test_page_loads_javascript_without_inline_result_injection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pi = {"B": 1.0, "M": 0.0, "E": 0.0, "S": 0.0}
+            A = {
+                "B": {"B": 0.0, "M": 0.0, "E": 1.0, "S": 0.0},
+                "M": {"B": 0.0, "M": 0.0, "E": 1.0, "S": 0.0},
+                "E": {"B": 1.0, "M": 0.0, "E": 0.0, "S": 0.0},
+                "S": {"B": 1.0, "M": 0.0, "E": 0.0, "S": 0.0},
+            }
+            B = {state: {} for state in ("B", "M", "E", "S")}
+            app = create_app(HMMSegmenter(pi, A, B), result_dir=tmp)
+            response = app.test_client().get("/static/app.js")
+        script = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("formData.append", script)
+        self.assertNotIn("preview.innerHTML =", script)
+
 
 if __name__ == "__main__":
     unittest.main()
