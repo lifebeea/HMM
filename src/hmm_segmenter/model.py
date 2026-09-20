@@ -1,5 +1,8 @@
 import json
+import math
 import re
+from collections.abc import Mapping
+from numbers import Real
 from pathlib import Path
 
 from .viterbi import STATES, tags_to_words, viterbi_decode
@@ -17,18 +20,48 @@ class HMMSegmenter:
         self.metadata = metadata or {}
         self._validate()
 
+    @staticmethod
+    def _validate_probability_values(values, context) -> None:
+        for value in values.values():
+            if not isinstance(value, Real):
+                raise ModelError(f"{context} contains a non-numeric probability")
+            if not math.isfinite(value):
+                raise ModelError(f"{context} contains a non-finite probability")
+            if value < 0:
+                raise ModelError(f"{context} contains a negative probability")
+
     def _validate(self) -> None:
+        if not isinstance(self.pi, Mapping):
+            raise ModelError("initial probabilities are malformed")
+        if not isinstance(self.A, Mapping):
+            raise ModelError("transition probabilities are malformed")
+        if not isinstance(self.B, Mapping):
+            raise ModelError("emission probabilities are malformed")
         if set(self.pi) != set(STATES):
             raise ModelError("initial probability states are incomplete")
         if set(self.A) != set(STATES):
             raise ModelError("transition states are incomplete")
         if set(self.B) != set(STATES):
             raise ModelError("emission states are incomplete")
+        self._validate_probability_values(self.pi, "initial probabilities")
         for state in STATES:
+            if not isinstance(self.A[state], Mapping):
+                raise ModelError(f"transition row is malformed: {state}")
             if set(self.A[state]) != set(STATES):
                 raise ModelError(f"transition row is incomplete: {state}")
+            self._validate_probability_values(
+                self.A[state],
+                f"transition probabilities for state {state}",
+            )
             if sum(self.A[state].values()) <= 0:
                 raise ModelError(f"transition row has no probability mass: {state}")
+        for state in STATES:
+            if not isinstance(self.B[state], Mapping):
+                raise ModelError(f"emission row is malformed: {state}")
+            self._validate_probability_values(
+                self.B[state],
+                f"emission probabilities for state {state}",
+            )
         if sum(self.pi.values()) <= 0:
             raise ModelError("initial probabilities have no probability mass")
 

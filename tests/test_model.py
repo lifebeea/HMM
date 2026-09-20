@@ -1,9 +1,11 @@
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
 
 from hmm_segmenter.model import HMMSegmenter, ModelError
+from hmm_segmenter.viterbi import STATES
 
 
 def sample_model():
@@ -24,6 +26,15 @@ def sample_model():
 
 
 class HMMSegmenterTests(unittest.TestCase):
+    def assert_model_rejected(self, model):
+        with self.assertRaises(ModelError):
+            HMMSegmenter(model.pi, model.A, model.B)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "invalid.json"
+            model.save(path)
+            with self.assertRaises(ModelError):
+                HMMSegmenter.load(path)
+
     def test_cut_returns_words_without_losing_characters(self):
         model = sample_model()
         words = model.cut("自然语言")
@@ -48,6 +59,44 @@ class HMMSegmenterTests(unittest.TestCase):
             path.write_text(json.dumps({"pi": {}, "A": {}, "B": {}}), encoding="utf-8")
             with self.assertRaises(ModelError):
                 HMMSegmenter.load(path)
+
+    def test_constructor_and_load_reject_malformed_emission_row(self):
+        model = sample_model()
+        model.B["B"] = list(STATES)
+
+        self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_negative_probability(self):
+        for section, state, value in (
+            ("pi", "B", -0.1),
+            ("A", "B", -0.1),
+            ("B", "B", -0.1),
+        ):
+            with self.subTest(section=section):
+                model = sample_model()
+                if section == "pi":
+                    model.pi[state] = value
+                else:
+                    row = getattr(model, section)[state]
+                    row[next(iter(row))] = value
+
+                self.assert_model_rejected(model)
+
+    def test_constructor_and_load_reject_non_finite_probability(self):
+        for section, value in (
+            ("pi", math.nan),
+            ("A", math.inf),
+            ("B", -math.inf),
+        ):
+            with self.subTest(section=section):
+                model = sample_model()
+                if section == "pi":
+                    model.pi["B"] = value
+                else:
+                    row = getattr(model, section)["B"]
+                    row[next(iter(row))] = value
+
+                self.assert_model_rejected(model)
 
 
 if __name__ == "__main__":
