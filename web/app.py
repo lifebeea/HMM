@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request, send_file
-from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
+from werkzeug.exceptions import HTTPException
 
 from web.service import MAX_UPLOAD_BYTES, SegmentationService, ServiceError
 
@@ -46,35 +46,27 @@ def create_app(segmenter=None, model_path=None, result_dir=None) -> Flask:
             error.status_code,
         )
 
-    @app.errorhandler(RequestEntityTooLarge)
-    def handle_too_large(_error):
+    @app.errorhandler(HTTPException)
+    def handle_http_error(error: HTTPException):
+        if not request.path.startswith("/api/"):
+            return error
+
+        error_codes = {
+            404: "RESULT_NOT_FOUND",
+            405: "METHOD_NOT_ALLOWED",
+            413: "FILE_TOO_LARGE",
+        }
         return (
             jsonify(
                 {
                     "error": {
-                        "code": "FILE_TOO_LARGE",
-                        "message": "文件超过 5 MiB 限制",
+                        "code": error_codes.get(error.code, "HTTP_ERROR"),
+                        "message": error.description,
                     }
                 }
             ),
-            413,
+            error.code,
         )
-
-    @app.errorhandler(HTTPException)
-    def handle_http_error(error: HTTPException):
-        if request.path.startswith("/api/") and error.code == 404:
-            return (
-                jsonify(
-                    {
-                        "error": {
-                            "code": "RESULT_NOT_FOUND",
-                            "message": error.description,
-                        }
-                    }
-                ),
-                error.code,
-            )
-        return error
 
     @app.errorhandler(Exception)
     def handle_internal_error(_error):

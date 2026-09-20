@@ -4,9 +4,12 @@ import time
 import unittest
 from pathlib import Path
 
+from flask import abort
 from hmm_segmenter.model import HMMSegmenter
+from werkzeug.exceptions import BadRequest, MethodNotAllowed, RequestEntityTooLarge
+
 from web.app import create_app
-from web.service import SegmentationService, ServiceError
+from web.service import MAX_UPLOAD_BYTES, SegmentationService, ServiceError
 
 
 def sample_model():
@@ -157,11 +160,49 @@ class WebAppTests(unittest.TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertEqual(response.get_json()["error"]["code"], "RESULT_NOT_FOUND")
 
-    def test_non_404_api_http_error_keeps_original_response(self):
+    def test_method_not_allowed_returns_consistent_error(self):
         with self.client.get("/api/segment") as response:
             self.assertEqual(response.status_code, 405)
-            self.assertEqual(response.mimetype, "text/html")
-            self.assertIn(b"405 Method Not Allowed", response.data)
+            self.assertTrue(response.is_json)
+            self.assertEqual(
+                response.get_json()["error"],
+                {
+                    "code": "METHOD_NOT_ALLOWED",
+                    "message": MethodNotAllowed.description,
+                },
+            )
+
+    def test_request_entity_too_large_returns_consistent_error(self):
+        with self.client.post(
+            "/api/segment",
+            data=b"x" * (MAX_UPLOAD_BYTES + 1),
+            content_type="text/plain",
+        ) as response:
+            self.assertEqual(response.status_code, 413)
+            self.assertTrue(response.is_json)
+            self.assertEqual(
+                response.get_json()["error"],
+                {
+                    "code": "FILE_TOO_LARGE",
+                    "message": RequestEntityTooLarge.description,
+                },
+            )
+
+    def test_other_api_http_error_returns_consistent_error(self):
+        @self.app.get("/api/test-error")
+        def api_test_error():
+            abort(400)
+
+        with self.client.get("/api/test-error") as response:
+            self.assertEqual(response.status_code, 400)
+            self.assertTrue(response.is_json)
+            self.assertEqual(
+                response.get_json()["error"],
+                {
+                    "code": "HTTP_ERROR",
+                    "message": BadRequest.description,
+                },
+            )
 
 
 if __name__ == "__main__":
