@@ -31,8 +31,8 @@
       <label id="drop-zone" class="drop-zone" for="file-input">
         <svg class="icon"><use href="#icon-upload"></use></svg>
         <span id="selected-file">选择或拖入 .txt 文件</span>
+        <input id="file-input" class="visually-hidden" name="file" type="file" accept=".txt,text/plain">
       </label>
-      <input id="file-input" name="file" type="file" accept=".txt,text/plain" hidden>
       <button id="analyze-button" class="primary-button" type="submit" disabled>
         开始分析
       </button>
@@ -53,10 +53,10 @@
           <p class="eyebrow">RESULT</p>
           <h2>分词结果预览</h2>
         </div>
-        <a id="download-button" class="primary-button disabled" aria-disabled="true">
+        <button id="download-button" type="button" disabled class="primary-button">
           <svg class="icon"><use href="#icon-download"></use></svg>
           下载结果
-        </a>
+        </button>
       </div>
       <pre id="preview" class="preview">上传文件后，结果显示在这里。</pre>
     </section>
